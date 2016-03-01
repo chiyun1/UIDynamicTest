@@ -95,7 +95,7 @@
     dynamicItem.elasticity = 1;
     [animator addBehavior:dynamicItem];
     
-    UITapGestureRecognizer* tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapScreen)];
+    UITapGestureRecognizer* tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapScreen:)];
     [self.view addGestureRecognizer:tap];
 }
 
@@ -104,40 +104,61 @@
 {
     if (pan.state == UIGestureRecognizerStateBegan) {
         startPoint = [pan locationInView:attatchBottomView];
+        [self removeSnapAndPan];
     }
     else if(pan.state == UIGestureRecognizerStateChanged){
         CGPoint offset = [pan translationInView:attatchBottomView];
         CGPoint new = CGPointMake(startPoint.x + offset.x, startPoint.y + offset.y);
         anchorPointView.center = new;
         
-        UIAttachmentBehavior* attatch = [animator.behaviors firstObject];
-        attatch.anchorPoint = new;
+        [animator.behaviors enumerateObjectsUsingBlock:^(__kindof UIDynamicBehavior * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            if ([obj isKindOfClass:[UIAttachmentBehavior class]]) {
+                UIAttachmentBehavior* attatch = obj;
+                attatch.anchorPoint = new;
+                *stop = YES;
+            }
+        }];
         [animator updateItemUsingCurrentState:boxView];
         
     }
     else if(pan.state == UIGestureRecognizerStateEnded ||
             pan.state == UIGestureRecognizerStateFailed ||
             pan.state == UIGestureRecognizerStateCancelled){
-        
-        
     }
     
 }
 
 
-- (void) tapScreen
+- (void) tapScreen:(UITapGestureRecognizer*) tap
 {
+    [self removeSnapAndPan];
+//    UIPushBehavior* push = [[UIPushBehavior alloc] initWithItems:@[boxView] mode:UIPushBehaviorModeInstantaneous];
+//    push.magnitude = 20.0;
+//    push.pushDirection = CGVectorMake(1, 0);
+//    [animator addBehavior:push];
+    
+    UISnapBehavior* snap = [[UISnapBehavior alloc] initWithItem:anchorPointView snapToPoint:[tap locationInView:attatchBottomView]];
     [animator.behaviors enumerateObjectsUsingBlock:^(__kindof UIDynamicBehavior * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        if ([obj isKindOfClass:[UIPushBehavior class]]) {
-            [animator removeBehavior:obj];
+        if ([obj isKindOfClass:[UIAttachmentBehavior class]]) {
+            UIAttachmentBehavior* attatch = obj;
+            attatch.anchorPoint = [tap locationInView:attatchBottomView];
+            [animator updateItemUsingCurrentState:boxView];
             *stop = YES;
         }
     }];
     
-    UIPushBehavior* push = [[UIPushBehavior alloc] initWithItems:@[boxView] mode:UIPushBehaviorModeInstantaneous];
-    push.magnitude = 20.0;
-    push.pushDirection = CGVectorMake(1, 0);
-    [animator addBehavior:push];
+    [animator addBehavior:snap];
+    [animator updateItemUsingCurrentState:boxView];
 }
 
+- (void) removeSnapAndPan
+{
+    [animator.behaviors enumerateObjectsUsingBlock:^(__kindof UIDynamicBehavior * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+        if ([obj isKindOfClass:[UIPushBehavior class]] ||
+            [obj isKindOfClass:[UISnapBehavior class]]) {
+            [animator removeBehavior:obj];
+            *stop = YES;
+        }
+    }];
+}
 @end
